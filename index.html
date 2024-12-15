@@ -7,7 +7,7 @@
     <style>
         body {
             margin: 0;
-            overflow: hidden; /* Prevent scrollbars from appearing */
+            overflow: hidden;
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
         }
@@ -20,21 +20,18 @@
             left: 50px;
             border-radius: 5px;
             cursor: pointer;
+            display: none;
         }
-        .score {
+        .score, .timer, .level {
             position: fixed;
             top: 10px;
-            left: 10px;
             font-size: 20px;
             color: #333;
+            display: none;
         }
-        .timer {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            font-size: 20px;
-            color: #333;
-        }
+        .score { left: 10px; }
+        .timer { right: 10px; }
+        .level { left: 50%; transform: translateX(-50%); }
         .game-over {
             position: fixed;
             top: 0;
@@ -49,7 +46,7 @@
             align-items: center;
             font-size: 30px;
             z-index: 10;
-            visibility: hidden; /* Hidden by default */
+            visibility: hidden;
         }
         .game-over.visible {
             visibility: visible;
@@ -64,14 +61,45 @@
             border: none;
             border-radius: 5px;
         }
+        .welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            text-align: center;
+        }
+        .welcome-screen button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 20px;
+            cursor: pointer;
+            background-color: white;
+            color: black;
+            border: none;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
+    <div class="welcome-screen">
+        <div>Welcome to the Clickable Square Game!</div>
+        <p>Click on the square as many times as you can before the timer runs out. Reach the target score to progress to the next level. Good luck!</p>
+        <button onclick="startGame()">Start Game</button>
+    </div>
+    <div class="level">Level 1</div>
     <div class="score">Score: 0</div>
-    <div class="timer">Time: 60</div>
+    <div class="timer">Time: 45</div>
     <div class="square"></div>
     <div class="game-over">
-        <div id="final-score">Game Over! Your score is: 0</div>
+        <div id="final-score"></div>
         <button onclick="resetGame()">Restart Game</button>
     </div>
 
@@ -81,25 +109,40 @@
         const timerElement = document.querySelector('.timer');
         const gameOverElement = document.querySelector('.game-over');
         const finalScoreElement = document.getElementById('final-score');
-
+        const welcomeScreen = document.querySelector('.welcome-screen');
+        let levelScreen = null; // Temporary screen to show the level text
+    
+        // Display current level at the top middle
+        const currentLevelElement = document.createElement('div');
+        currentLevelElement.style.position = 'fixed';
+        currentLevelElement.style.top = '10px';
+        currentLevelElement.style.left = '50%';
+        currentLevelElement.style.transform = 'translateX(-50%)';
+        currentLevelElement.style.fontSize = '24px';
+        currentLevelElement.style.color = 'black';
+        currentLevelElement.style.zIndex = '5';
+        currentLevelElement.textContent = '';
+        document.body.appendChild(currentLevelElement);
+    
         let score = 0;
-        let timeLeft = 60; // Timer starts at 60 seconds
+        let timeLeft = 45; // Timer starts at 45 seconds
+        let targetScore = 40; // Default for Level 1
+        let squareSize = 50; // Default size for Level 1
+        let currentLevel = 1; // Start with Level 1
         let timer;
-
+    
         // Function to generate a random position within the viewport
         function getRandomPosition() {
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
-
-            const squareSize = 50; // Size of the square
-
+    
             // Random positions ensuring the square stays within bounds
             const randomX = Math.random() * (viewportWidth - squareSize);
             const randomY = Math.random() * (viewportHeight - squareSize);
-
+    
             return { x: randomX, y: randomY };
         }
-
+    
         // Function to start the countdown timer
         function startTimer() {
             timer = setInterval(() => {
@@ -107,40 +150,122 @@
                 timerElement.textContent = `Time: ${timeLeft}`;
                 if (timeLeft <= 0) {
                     clearInterval(timer);
-                    endGame();
+                    checkGameStatus();
                 }
             }, 1000);
         }
-
-        // Function to end the game
-        function endGame() {
-            gameOverElement.classList.add('visible');
-            finalScoreElement.textContent = `Game Over! Your score is: ${score}`;
-            square.style.display = 'none'; // Hide the square
+    
+        // Function to show a level screen briefly
+        function showLevelScreen(level) {
+            levelScreen = document.createElement('div');
+            levelScreen.style.position = 'fixed';
+            levelScreen.style.top = '0';
+            levelScreen.style.left = '0';
+            levelScreen.style.width = '100%';
+            levelScreen.style.height = '100%';
+            levelScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            levelScreen.style.color = 'white';
+            levelScreen.style.display = 'flex';
+            levelScreen.style.flexDirection = 'column';
+            levelScreen.style.justifyContent = 'center';
+            levelScreen.style.alignItems = 'center';
+            levelScreen.style.fontSize = '48px';
+            levelScreen.style.zIndex = '10';
+            levelScreen.textContent = `Level ${level}`;
+            document.body.appendChild(levelScreen);
+    
+            setTimeout(() => {
+                levelScreen.remove();
+                levelScreen = null;
+            }, 2000); // Remove after 2 seconds
         }
-
-        // Function to reset the game
-        function resetGame() {
+    
+        // Function to handle the end of the game or level progression
+        function checkGameStatus() {
+            if (score >= targetScore) {
+                if (currentLevel === 1) {
+                    // Advance to Level 2
+                    currentLevel = 2;
+                    startLevel2();
+                } else {
+                    // Game completed
+                    gameOverElement.classList.add('visible');
+                    finalScoreElement.textContent = `You Win! Final Score: ${score}`;
+                    square.style.display = 'none'; // Hide the square
+                    currentLevelElement.textContent = ''; // Remove current level text
+                }
+            } else {
+                // Game Over
+                gameOverElement.classList.add('visible');
+                finalScoreElement.textContent = `Game Over! Your score was: ${score}`;
+                square.style.display = 'none'; // Hide the square
+                currentLevelElement.textContent = ''; // Remove current level text
+            }
+        }
+    
+        // Function to start Level 2
+        function startLevel2() {
             score = 0;
-            timeLeft = 60;
+            timeLeft = 35; // Update timer for Level 2
+            targetScore = 25; // Update target score for Level 2
+            squareSize = 40; // Slightly increase square size for Level 2
+            square.style.backgroundColor = 'red'; // Change square color to red
+            square.style.width = `${squareSize}px`;
+            square.style.height = `${squareSize}px`;
+    
             scoreElement.textContent = `Score: ${score}`;
             timerElement.textContent = `Time: ${timeLeft}`;
-            gameOverElement.classList.remove('visible');
-            square.style.display = 'block'; // Show the square again
+            currentLevelElement.textContent = `Level 2`; // Update level text at the top middle
+    
+            showLevelScreen(2); // Show Level 2 screen
             startTimer();
+            moveSquare();
         }
-
+    
+        // Function to start the game
+        function startGame() {
+            currentLevel = 1; // Reset to Level 1
+            score = 0;
+            timeLeft = 45; // Reset timer for Level 1
+            targetScore = 40; // Target score for Level 1
+            squareSize = 50; // Reset square size for Level 1
+            square.style.backgroundColor = 'blue'; // Reset square color for Level 1
+            square.style.width = `${squareSize}px`;
+            square.style.height = `${squareSize}px`;
+    
+            welcomeScreen.style.display = 'none'; // Hide the welcome screen
+            scoreElement.style.display = 'block'; // Show the score
+            timerElement.style.display = 'block'; // Show the timer
+            square.style.display = 'block'; // Show the square
+            currentLevelElement.textContent = `Level 1`; // Display "Level 1" text at the top
+    
+            showLevelScreen(1); // Show Level 1 screen
+            startTimer();
+            moveSquare(); // Move the square immediately when the game starts
+        }
+    
+        // Function to move the square every time it’s clicked
+        function moveSquare() {
+            const { x, y } = getRandomPosition();
+            square.style.left = `${x}px`;
+            square.style.top = `${y}px`;
+        }
+    
         // Add a click event listener to the square
         square.addEventListener('click', () => {
             score++;
             scoreElement.textContent = `Score: ${score}`;
-            const { x, y } = getRandomPosition();
-            square.style.left = `${x}px`;
-            square.style.top = `${y}px`;
+    
+            // Move the square when clicked
+            moveSquare();
         });
-
-        // Start the timer when the game loads
-        startTimer();
+    
+        // Function to reset the game
+        function resetGame() {
+            location.reload(); // Reload the page to reset everything
+        }
     </script>
+    
+    
 </body>
 </html>
